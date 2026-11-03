@@ -12,6 +12,16 @@ function save() { try { localStorage.setItem('drive-tone-preferences', JSON.stri
 function notice(text, error = false) { $('notice-text').textContent = text; $('notice').classList.toggle('error', error); }
 function releasePedals() { held.throttle.clear(); held.brake.clear(); $('throttle').classList.remove('pressed'); $('brake').classList.remove('pressed'); }
 function badge(label, className = '') { $('gps-label').textContent = label; $('gps-badge').className = `gps-badge ${className}`; }
+function updateGpsDiagnostic(extra = '') {
+  const el = $('gps-diagnostic'); if (!el) return;
+  if (state.mode !== 'gps') { el.textContent = 'GPS diagnostic: pedal playground — no GPS needed'; return; }
+  const d = gps.diagnostic;
+  if (!d) { el.textContent = 'GPS diagnostic: no fix yet · limits: 30 s old, 150 m accuracy'; return; }
+  const age = d.ageMs === null ? 'unknown age' : d.ageMs < 0 ? `${(Math.abs(d.ageMs) / 1000).toFixed(1)}s in future` : `${(d.ageMs / 1000).toFixed(1)}s old`;
+  const acc = d.accuracy === null ? 'unknown accuracy' : `${Math.round(d.accuracy)}m accuracy`;
+  const verdict = d.ok ? `accepted (${d.method})` : `rejected: ${d.reason}`;
+  el.textContent = `GPS diagnostic: last fix ${age} · ${acc} · ${verdict}${extra ? ` · ${extra}` : ''} · limits: 30 s old, 150 m accuracy`;
+}
 
 const svgNS = 'http://www.w3.org/2000/svg';
 function svgElement(tag, attrs, text) { const element = document.createElementNS(svgNS, tag); for (const [key, value] of Object.entries(attrs)) element.setAttribute(key, value); if (text !== undefined) element.textContent = text; return element; }
@@ -59,7 +69,7 @@ function stopGPS() {
   state.gpsSession++;
   if (state.watch !== null && navigator.geolocation) navigator.geolocation.clearWatch(state.watch);
   state.watch = null; state.gpsUsable = false; state.gpsStatus = 'standby'; gps.reset(); $('retry-gps').hidden = true;
-  badge(state.mode === 'manual' ? 'SIMULATED' : 'GPS STANDBY');
+  badge(state.mode === 'manual' ? 'SIMULATED' : 'GPS STANDBY'); updateGpsDiagnostic();
 }
 function startGPS() {
   stopGPS();
@@ -71,6 +81,7 @@ function startGPS() {
   state.watch = navigator.geolocation.watchPosition((position) => {
     if (session !== state.gpsSession || state.mode !== 'gps') return;
     const result = gps.ingest(position);
+    updateGpsDiagnostic();
     if (result.reason === 'duplicate') return;
     state.gpsUsable = result.ok;
     if (result.ok) {
@@ -83,7 +94,7 @@ function startGPS() {
     }
   }, (error) => {
     if (session !== state.gpsSession || state.mode !== 'gps') return;
-    state.gpsUsable = false; state.gpsStatus = 'error'; badge(error.code === 1 ? 'GPS DENIED' : 'GPS LOST', 'error'); $('retry-gps').hidden = false;
+    state.gpsUsable = false; state.gpsStatus = 'error'; badge(error.code === 1 ? 'GPS DENIED' : 'GPS LOST', 'error'); $('retry-gps').hidden = false; updateGpsDiagnostic(`watch error code ${error.code}`);
     notice(error.code === 1 ? 'Location access was denied. Allow it in the browser settings, then retry GPS. Pedal playground is available while parked.' : 'GPS is unavailable or timed out. The engine returns to idle. Retry GPS when the signal improves.', true);
   }, { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 });
 }
@@ -175,7 +186,7 @@ function frame(now) {
   const dt = clamp((now - frameTime) / 1000, 0, 0.1); frameTime = now;
   const preset = PRESETS[state.preset], usable = state.gpsUsable && gps.fresh();
   if (state.mode === 'gps' && state.gpsUsable && !usable) {
-    state.gpsUsable = false; state.gpsStatus = 'stale'; badge('GPS LOST', 'error'); $('retry-gps').hidden = false;
+    state.gpsUsable = false; state.gpsStatus = 'stale'; badge('GPS LOST', 'error'); $('retry-gps').hidden = false; updateGpsDiagnostic(`no fresh fix for ${gps.lastFix ? ((now - gps.lastFix) / 1000).toFixed(0) : '—'}s`);
     notice('GPS updates stopped. Speed is unavailable and the engine returns to idle until a fresh fix arrives.', true);
   }
   if (state.running && audio.context?.state !== 'running') { stopEngine(); notice('The browser paused audio. Tap Start to resume the engine.', true); }

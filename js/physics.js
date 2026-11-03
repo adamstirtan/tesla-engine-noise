@@ -14,38 +14,61 @@ export function distanceMeters(a, b) {
 }
 
 // Coordinates are transient and never leave this object/browser.
+// Limits are deliberately relaxed for in-car browsers (notably Tesla's),
+// which were observed in field testing to deliver infrequent and coarse
+// fixes that a phone browser passes easily: fixes up to 30 s old and
+// accuracy up to 150 m are accepted, and a fix is still "fresh" for 30 s.
+// Every ingest updates `diagnostic` so the UI can show exactly which
+// gate, if any, rejected a fix, instead of a generic "unreliable" badge.
 export class GPSMotion {
-  constructor() { this.reset(); }
-  reset() { this.previous = null; this.speed = 0; this.acceleration = 0; this.accuracy = null; this.lastFix = 0; this.method = null; }
+  constructor(options = {}) {
+    this.maxFixAgeMs = options.maxFixAgeMs ?? 30000;
+    this.maxAccuracy = options.maxAccuracy ?? 150;
+    this.freshWindowMs = options.freshWindowMs ?? 30000;
+    this.futureSkewMs = options.futureSkewMs ?? 5000;
+    this.reset();
+  }
+  reset() { this.previous = null; this.speed = 0; this.acceleration = 0; this.accuracy = null; this.lastFix = 0; this.method = null; this.diagnostic = null; }
+  _record(result, position, now) {
+    const c = position?.coords ?? {};
+    this.diagnostic = {
+      ...result,
+      ageMs: Number.isFinite(position?.timestamp) ? now - position.timestamp : null,
+      accuracy: Number.isFinite(c.accuracy) ? c.accuracy : null,
+      timestamp: position?.timestamp ?? null,
+      observedAt: now,
+    };
+    return this.diagnostic;
+  }
   ingest(position, now = Date.now()) {
     const c = position.coords;
     const timestamp = position.timestamp;
-    if (!Number.isFinite(timestamp) || now - timestamp > 8000 || timestamp > now + 2000) return { ok: false, reason: 'stale' };
-    if (!Number.isFinite(c.latitude) || !Number.isFinite(c.longitude) || !Number.isFinite(c.accuracy) || c.accuracy < 0 || c.accuracy > 60) return { ok: false, reason: 'accuracy' };
+    if (!Number.isFinite(timestamp) || now - timestamp > this.maxFixAgeMs || timestamp > now + this.futureSkewMs) return this._record({ ok: false, reason: 'stale' }, position, now);
+    if (!Number.isFinite(c.latitude) || !Number.isFinite(c.longitude) || !Number.isFinite(c.accuracy) || c.accuracy < 0 || c.accuracy > this.maxAccuracy) return this._record({ ok: false, reason: 'accuracy' }, position, now);
     const previous = this.previous;
-    if (previous && timestamp <= previous.timestamp) return { ok: false, reason: 'duplicate' };
+    if (previous && timestamp <= previous.timestamp) return this._record({ ok: false, reason: 'duplicate' }, position, now);
     const dt = previous ? (timestamp - previous.timestamp) / 1000 : 0;
     let raw = Number.isFinite(c.speed) && c.speed >= 0 ? c.speed : null;
     let method = 'native';
     if (raw === null) {
       method = 'estimated';
-      if (previous && dt >= 0.2 && dt <= 10) {
+      if (previous && dt >= 0.2 && dt <= this.freshWindowMs / 1000) {
         const distance = distanceMeters(previous.coords, c);
         const uncertainty = Math.max(4, (previous.coords.accuracy + c.accuracy) * 0.225);
         raw = distance < uncertainty ? 0 : distance / dt;
       }
     }
-    if (raw !== null && (raw > 90 || (previous && dt > 0 && dt < 10 && Math.abs(raw - previous.raw) / dt > 12))) {
+    if (raw !== null && (raw > 90 || (previous && dt > 0 && dt < this.freshWindowMs / 1000 && Math.abs(raw - previous.raw) / dt > 12))) {
       // Rebase after a jump so the next real fix can recover, but invalidate motion.
       this.previous = { coords: c, timestamp, raw: this.speed };
-      return { ok: false, reason: 'jump' };
+      return this._record({ ok: false, reason: 'jump' }, position, now);
     }
     this.previous = { coords: c, timestamp, raw: raw ?? 0 };
     this.accuracy = c.accuracy;
-    if (raw === null) return { ok: false, reason: 'warming' };
+    if (raw === null) return this._record({ ok: false, reason: 'warming' }, position, now);
     raw = raw < 0.65 ? 0 : raw;
     const before = this.speed;
-    const continuous = this.lastFix && dt > 0 && dt <= 8;
+    const continuous = this.lastFix && dt > 0 && dt <= this.freshWindowMs / 1000;
     const blend = continuous ? 1 - Math.exp(-dt / 0.65) : 1;
     this.speed += (raw - this.speed) * blend;
     if (raw === 0 && this.speed < 0.65) this.speed = 0;
@@ -53,9 +76,9 @@ export class GPSMotion {
     this.acceleration = continuous ? this.acceleration + (acceleration - this.acceleration) * 0.65 : 0;
     this.lastFix = timestamp;
     this.method = method;
-    return { ok: true, method };
+    return this._record({ ok: true, method }, position, now);
   }
-  fresh(now = Date.now()) { return this.lastFix > 0 && now - this.lastFix <= 8000; }
+  fresh(now = Date.now()) { return this.lastFix > 0 && now - this.lastFix <= this.freshWindowMs; }
 }
 
 export function gpsEngine(speed, acceleration, preset) {

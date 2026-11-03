@@ -28,8 +28,10 @@ test('coordinate fallback calculates distance, and suppresses stationary jitter'
 });
 test('bad accuracy, stale fixes, duplicate timestamps, and speed spikes are rejected', () => {
   const gps = new GPSMotion();
-  assert.equal(gps.ingest(fix(5, 0, { accuracy: 61 }), base).reason, 'accuracy');
-  assert.equal(gps.ingest(fix(5), base + 9000).reason, 'stale');
+  // Relaxed defaults for in-car browsers: 30 s / 150 m, not the old 8 s / 60 m.
+  assert.equal(gps.ingest(fix(5, 0, { accuracy: 151 }), base).reason, 'accuracy');
+  assert.equal(new GPSMotion().ingest(fix(5, 0, { accuracy: 100 }), base).ok, true);
+  assert.equal(gps.ingest(fix(5), base + 31000).reason, 'stale');
   assert.equal(gps.ingest(fix(100), base).reason, 'jump');
   gps.ingest(fix(5), base);
   assert.equal(gps.ingest(fix(5), base).reason, 'duplicate');
@@ -37,12 +39,26 @@ test('bad accuracy, stale fixes, duplicate timestamps, and speed spikes are reje
   assert.equal(gps.ingest(fix(6, 2), base + 2000).ok, true);
   assert.ok(gps.speed < 7);
 });
+test('strict limits can still be configured, and diagnostics record rejections', () => {
+  const strict = new GPSMotion({ maxFixAgeMs: 8000, maxAccuracy: 60, freshWindowMs: 8000 });
+  assert.equal(strict.ingest(fix(5, 0, { accuracy: 61 }), base).reason, 'accuracy');
+  assert.equal(strict.ingest(fix(5), base + 9000).reason, 'stale');
+  assert.equal(strict.diagnostic.reason, 'stale');
+  assert.equal(strict.diagnostic.ageMs, 9000);
+  assert.equal(strict.diagnostic.accuracy, 5);
+  const gps = new GPSMotion();
+  gps.ingest(fix(5, 0, { accuracy: 42 }), base);
+  assert.equal(gps.diagnostic.ok, true);
+  assert.equal(gps.diagnostic.method, 'native');
+  assert.equal(gps.diagnostic.ageMs, 0);
+  assert.equal(gps.diagnostic.accuracy, 42);
+});
 test('native GPS stationary noise is filtered; expiry/reset remove motion', () => {
   const gps = new GPSMotion();
   gps.ingest(fix(0.4), base);
   assert.equal(gps.speed, 0);
-  assert.equal(gps.fresh(base + 8000), true);
-  assert.equal(gps.fresh(base + 8001), false);
+  assert.equal(gps.fresh(base + 30000), true);
+  assert.equal(gps.fresh(base + 30001), false);
   gps.reset(); assert.equal(gps.fresh(base), false); assert.equal(gps.previous, null);
 });
 test('GPS engine has a continuous monotonic RPM curve with acceleration load', () => {
