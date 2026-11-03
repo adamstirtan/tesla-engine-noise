@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101112">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="A little electric. A lot of attitude. GPS-powered engine sound for your Tesla, with a parked pedal playground.">
+  <title>Drive Tone — Electric soul. Combustion heart.</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Drive Tone home"><span class="brand-mark">〰</span> DRIVE<span class="brand-slash">/</span>TONE<span class="brand-dot">®</span></a>
+      <span class="tagline">ELECTRIC SOUL. COMBUSTION HEART.</span>
+      <div class="car-tag"><span class="tiny-dot"></span> MODEL 3 <span class="muted">/ 2025</span></div>
+    </header>
+
+    <main>
+      <div class="intro"><div><div class="eyebrow">THE FEELING YOU MISSED</div><h1>Bring back the <em>rumble.</em></h1></div><div class="intro-meta"><span class="live-dot" id="engine-dot"></span><span id="engine-status">ENGINE OFF</span></div></div>
+
+      <div class="dashboard">
+        <section class="instrument-panel" aria-label="Driving instruments">
+          <div class="instrument-toolbar">
+            <div class="mode-switch" role="group" aria-label="Driving mode">
+              <button id="gps-mode" class="selected" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>GPS drive</button>
+              <button id="manual-mode" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18V6m6 12V6m6 12V6M3 9h6m0 6h6m0-5h6"/></svg>Pedal playground</button>
+            </div>
+            <span class="gps-badge" id="gps-badge"><span class="tiny-dot"></span><span id="gps-label">GPS STANDBY</span></span>
+          </div>
+
+          <div class="gauge-wrap">
+            <svg id="speedometer" viewBox="0 0 600 390" role="img" aria-label="Speedometer, 0 to 240 kilometres per hour">
+              <defs><filter id="glow"><feGaussianBlur stdDeviation="3"/></filter></defs>
+              <g id="gauge-art"></g>
+              <path id="speed-trail" class="speed-trail"/>
+              <g id="needle"><path d="M300 242 L134 338 L151 337 Z" fill="#fa6e3d"/><circle cx="300" cy="242" r="8" fill="#fa6e3d"/></g>
+            </svg>
+            <div class="digital-speed"><span class="gauge-caption" id="speed-caption">LIVE SPEED</span><span id="speed">0</span><span class="speed-unit">KM/H</span></div>
+            <div class="gauge-footer"><span id="gear">DIRECT</span><span class="gauge-footer-line"></span><span id="drive-state">READY WHEN YOU ARE</span></div>
+          </div>
+
+          <div class="rpm-block"><div class="rpm-heading"><span>ENGINE RPM</span><span><b id="rpm">0</b> <span class="muted">/ <span id="redline">6,500</span></span></span></div><div class="rpm-track"><div id="rpm-fill"></div><span class="rpm-redzone"></span></div><div class="rpm-scale"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7 × 1,000</span></div></div>
+
+          <div class="telemetry"><div><span class="metric-label">ACCELERATION</span><span class="metric-value"><b id="acceleration">+0.0</b><small>m/s²</small></span><span class="metric-description" id="accel-description">Waiting for location</span></div><div><span class="metric-label">ENGINE LOAD</span><span class="metric-value"><b id="load">0</b><small>%</small></span><div class="load-track"><span id="load-fill"></span></div></div><div><span class="metric-label">SIGNAL ACCURACY</span><span class="metric-value"><b id="accuracy">—</b><small id="accuracy-unit">m</small></span><span class="metric-description" id="signal-description">On-device GPS only</span></div></div>
+        </section>
+
+        <aside class="control-panel">
+          <div class="section-heading"><span class="eyebrow">01 / THE ENGINE ROOM</span><span class="section-number">↗</span></div>
+          <h2>Pick your personality.</h2>
+          <div id="engine-options" class="engine-options" role="group" aria-label="Engine sound"></div>
+          <div class="sound-source" id="sound-source">Synthesized preview · recordings pending</div>
+
+          <div class="tuning">
+            <div class="section-heading"><span class="eyebrow">02 / MAKE SOME NOISE</span></div>
+            <div class="volume-label"><label for="volume">Cabin volume</label><output id="volume-value" for="volume">40%</output></div>
+            <input id="volume" type="range" min="0" max="100" value="40" aria-label="Cabin volume">
+            <div class="toggle-row"><label for="pops">Exhaust pops <span>That little extra attitude.</span></label><input id="pops" class="switch" type="checkbox" checked></div>
+            <div class="limiter-row"><span><i></i> Rev limiter</span><span>ALWAYS ON</span></div>
+          </div>
+
+          <div id="pedal-controls" class="pedal-controls" hidden>
+            <div class="playground-heading"><span class="eyebrow">PARKED PLAYGROUND</span><button id="reset" class="text-button">Reset</button></div>
+            <div class="transmission-switch" role="group" aria-label="Simulated transmission"><button id="drive-gear" class="selected" aria-pressed="true">Auto drive</button><button id="neutral-gear" aria-pressed="false">Free rev · N</button></div>
+            <div class="pedals"><button id="brake" class="pedal brake" aria-label="Hold brake pedal"><span class="pedal-grip"></span><span>BRAKE</span><small>↓ / S</small></button><button id="throttle" class="pedal throttle" aria-label="Hold accelerator pedal"><span class="pedal-grip"></span><span>THROTTLE</span><small>↑ / W</small></button></div>
+            <p class="pedal-hint">Press & hold. Release to coast. <span id="shift-description">Automatic shifts in this mode.</span></p>
+          </div>
+          <button id="ignition" class="ignition"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v9m-5-7a8 8 0 1 0 10 0"/></svg><span id="ignition-label">START ENGINE</span><span class="ignition-arrow">↗</span></button>
+          <p class="ignition-hint" id="ignition-hint">Tap to unlock audio & connect GPS.</p>
+        </aside>
+      </div>
+
+      <div class="notice" id="notice" role="status" aria-live="polite"><span class="notice-icon">⌁</span><span id="notice-text">Your electric car. A different soundtrack. Start the engine to connect GPS, or explore the pedals while parked.</span><button id="retry-gps" class="text-button" hidden>Retry GPS</button></div>
+    </main>
+    <footer><span>A LITTLE ELECTRIC. A LOT OF ATTITUDE.</span><div><span>Set up while parked.</span><button id="credits-button" class="text-button">Sound credits ↗</button><button id="fullscreen" class="text-button">Full screen ⛶</button></div></footer>
+  </div>
+
+  <dialog id="credits-dialog"><div class="dialog-top"><span class="eyebrow">THE SOUND BEHIND THE SOUL</span><button id="close-credits" class="text-button" aria-label="Close sound credits">✕</button></div><h2>Real recordings. Open licenses.</h2><p>The app uses the local recordings below when installed. Until then, each engine uses a distinct synthesized preview. These are inspired sound profiles, not exact recreations of the named cars.</p><ul><li><a href="https://freesound.org/people/jackthemurray/sounds/348430/" target="_blank" rel="noopener noreferrer">Classic Car Idle.wav</a> — jackthemurray. 350 Rocket V8.</li><li><a href="https://freesound.org/people/victormalloy/sounds/113216/" target="_blank" rel="noopener noreferrer">Porsche idle.aif</a> — victormalloy.</li><li><a href="https://freesound.org/people/EwanPenman11/sounds/659554/" target="_blank" rel="noopener noreferrer">Ferrari Engine (passive)</a> — EwanPenman11.</li></ul><p>All three recordings are released under <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener noreferrer">CC0 1.0</a>. Playback loops, pitch, and filtering are adapted in the browser. Exhaust pops and fallback sounds are synthesized.</p><p class="privacy-note">Location stays in this browser. No accounts, analytics, or uploaded routes. Preferences are saved locally.</p></dialog>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
